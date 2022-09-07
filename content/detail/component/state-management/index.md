@@ -232,11 +232,111 @@ weight: 40
 
 ### gRPC
 
+消息的定义在`dapr\dapr\proto\runtime\v1\dapr.proto`。此处不展开介绍。如：
+
+```go
+// GetStateRequest is the message to get key-value states from specific state store.
+message GetStateRequest {
+  // The name of state store.
+  string store_name = 1;
+
+  // The key of the desired state
+  string key = 2;
+
+  // The read consistency of the state store.
+  common.v1.StateOptions.StateConsistency consistency = 3;
+
+  // The metadata which will be sent to state store components.
+  map<string, string> metadata = 4;
+}
+
 ### HTTP
+
+HTTP API 的实现见 `dapr\pkg\http`。
+
+```go
+func (a *api) constructStateEndpoints() []Endpoint {
+	return []Endpoint{
+		{
+			Methods: []string{fasthttp.MethodGet},
+			Route:   "state/{storeName}/{key}",
+			Version: apiVersionV1,
+			Handler: a.onGetState,
+		},
+		{
+			Methods: []string{fasthttp.MethodPost, fasthttp.MethodPut},
+			Route:   "state/{storeName}",
+			Version: apiVersionV1,
+			Handler: a.onPostState,
+		},
+		{
+			Methods: []string{fasthttp.MethodDelete},
+			Route:   "state/{storeName}/{key}",
+			Version: apiVersionV1,
+			Handler: a.onDeleteState,
+		},
+		{
+			Methods: []string{fasthttp.MethodPost, fasthttp.MethodPut},
+			Route:   "state/{storeName}/bulk",
+			Version: apiVersionV1,
+			Handler: a.onBulkGetState,
+		},
+		{
+			Methods: []string{fasthttp.MethodPost, fasthttp.MethodPut},
+			Route:   "state/{storeName}/transaction",
+			Version: apiVersionV1,
+			Handler: a.onPostStateTransaction,
+		},
+		{
+			Methods: []string{fasthttp.MethodPost, fasthttp.MethodPut},
+			Route:   "state/{storeName}/query",
+			Version: apiVersionV1alpha1,
+			Handler: a.onQueryState,
+		},
+	}
+}
+```
 
 ### SDK
 
+
+
 ### CRUD
+
+#### Get State
+
+```go
+// dapr/pkg/http/api.go
+func (a *api) onGetState(reqCtx *fasthttp.RequestCtx) {
+	store, storeName, err := a.getStateStoreWithRequestValidation(reqCtx)
+	// ... ...
+
+	metadata := getMetadataFromRequest(reqCtx)
+
+    // ... ...
+    // process consistency
+	// state: "github.com/dapr/components-contrib/state"
+	req := state.GetRequest{
+		Key: k,
+		Options: state.GetStateOption{
+			Consistency: consistency,
+		},
+		Metadata: metadata,
+	}
+
+	// get response
+
+    // process encrypted response data
+
+	respond(reqCtx, withJSON(fasthttp.StatusOK, resp.Data), withEtag(resp.ETag), withMetadata(resp.Metadata))
+}
+```
+
+Redis的实现在`components-contrib\state\redis\redis.go`，流程图如下：
+
+![dapr-get-flow](images/get-flow.png)
+
+#### Save state
 
 ## 关键代码阅读
 
